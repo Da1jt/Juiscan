@@ -81,16 +81,14 @@ func main() {
 			temp, tempall, logco = processFile(file, *url, *slowscan, log)
 		}(file)
 	}
-
 	wg.Wait()
-
-	fmt.Printf("\n\n[+] 存在数量：")
+	fmt.Println("\n\n[*] 扫描完成\n")
+	fmt.Printf("[+] 存在数量：")
 	fmt.Printf("%d / %d", tempall, temp)
-	fmt.Println("\n[-] 扫描完成-\n")
 	if logco >= 1 {
-		println("[-] 全部或部分日志写入失败")
-	} else {
-		println("[+] 日志写入完成")
+		fmt.Printf("[-] 全部或部分日志写入失败,失败数量:%s", logco)
+	} else if logco == 0 {
+		println("\n[+] 日志写入完成")
 	}
 	fmt.Println("")
 
@@ -99,6 +97,8 @@ func main() {
 		shutdnt := shutdn.Run()
 		if shutdnt != nil {
 			fmt.Println("\n[-] 关机失败\n\n")
+		} else {
+			fmt.Println("[+] 关机成功")
 		}
 	}
 }
@@ -125,7 +125,7 @@ func getFileList(dirPath string) ([]string, error) {
 
 // 处理字典
 func processFile(filePath string, url string, slowmode bool, log bool) (int, int, int) {
-	fmt.Println("[+] 处理字典：", filePath+"\n")
+	fmt.Println("[+] 处理字典：", filePath)
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -139,8 +139,11 @@ func processFile(filePath string, url string, slowmode bool, log bool) (int, int
 	dislogcount := 0
 	currentTime := time.Now()
 	finalPath := "./log/" + currentTime.Format("2006-01-02_15-04-05") + "_" + url + ".txt"
-	os.Create(finalPath)
+	if log {
+		os.Create(finalPath)
+	}
 	scanner := bufio.NewScanner(file)
+
 	for scanner.Scan() {
 		path := scanner.Text()
 		result := checkPathExists(url, slowmode, path, log, finalPath, currentTime.String())
@@ -157,7 +160,9 @@ func processFile(filePath string, url string, slowmode bool, log bool) (int, int
 	if err := scanner.Err(); err != nil {
 		fmt.Println("[-] 读取文件失败：", err)
 	}
-
+	if log == false {
+		return fullc, counterc, -1
+	}
 	return fullc, counterc, dislogcount
 }
 
@@ -176,7 +181,7 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 
 	if response.StatusCode == http.StatusOK {
 		temppathhttps := "https://" + fullURL
-		if log == true {
+		if log {
 			if logs(url, temppathhttps, ctime, finalpath) != true {
 				return "normalisable"
 			}
@@ -194,7 +199,7 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 
 	if responser.StatusCode == http.StatusOK {
 		temppathhttp := "http://" + fullURL
-		if log == true {
+		if log {
 			if logs(url, temppathhttp, ctime, finalpath) != true {
 				return "normalisable"
 			}
@@ -203,10 +208,8 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 		return "notnormal"
 	}
 	return "none"
-
 }
 
-// logrin
 func logs(path string, exist string, ctime string, finalPath string) bool {
 	file, err := os.OpenFile(finalPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
