@@ -16,15 +16,16 @@ import (
 func main() {
 	shutdown := false
 	log := false
+	deepscan := false
 	flag.BoolVar(&shutdown, "shutdown", shutdown, "关闭")
 	flag.BoolVar(&log, "l", log, "日志写入")
+	flag.BoolVar(&deepscan, "d", deepscan, "递归扫描")
 	url := flag.String("url", "", "目标 URL")
 	slowscan := flag.Bool("s", false, "慢速扫描")
 	help := flag.Bool("h", false, "帮助")
 	flag.Parse()
 
 	fmt.Println("\n\n                     /$$                                                            \n                    |__/                                                            \n       /$$ /$$   /$$ /$$  /$$$$$$$  /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$   /$$$$$$ \n      |__/| $$  | $$| $$ /$$_____/ /$$_____/ |____  $$| $$__  $$ /$$__  $$ /$$__  $$\n       /$$| $$  | $$| $$|  $$$$$$ | $$        /$$$$$$$| $$  \\ $$| $$$$$$$$| $$  \\__/\n      | $$| $$  | $$| $$ \\____  $$| $$       /$$__  $$| $$  | $$| $$_____/| $$      \n      | $$|  $$$$$$/| $$ /$$$$$$$/|  $$$$$$$|  $$$$$$$| $$  | $$|  $$$$$$$| $$      \n      | $$ \\______/ |__/|_______/  \\_______/ \\_______/|__/  |__/ \\_______/|__/      \n /$$  | $$                                                                          \n|  $$$$$$/                                                                          \n \\______/                                                                           \n\n")
-	/*fmt.Println("Made by Bad_jui\n")*/
 
 	if *help {
 		helper()
@@ -55,6 +56,9 @@ func main() {
 		if os.Args[i] == "-l" {
 			log = true
 		}
+		if os.Args[i] == "-d" {
+			deepscan = true
+		}
 	}
 	conn, err := net.Dial("ip4:icmp", *url)
 	if err != nil {
@@ -78,7 +82,7 @@ func main() {
 		wg.Add(1)
 		go func(file string) {
 			defer wg.Done()
-			temp, tempall, logco = processFile(file, *url, *slowscan, log)
+			temp, tempall, logco = processFile(file, *url, *slowscan, log, deepscan)
 		}(file)
 	}
 	wg.Wait()
@@ -124,7 +128,7 @@ func getFileList(dirPath string) ([]string, error) {
 }
 
 // 处理字典
-func processFile(filePath string, url string, slowmode bool, log bool) (int, int, int) {
+func processFile(filePath string, url string, slowmode bool, log bool, deepscan bool) (int, int, int) {
 	fmt.Println("[+] 处理字典：", filePath)
 
 	file, err := os.Open(filePath)
@@ -136,6 +140,8 @@ func processFile(filePath string, url string, slowmode bool, log bool) (int, int
 
 	var fullc int = 0
 	var counterc int = 0
+	/*deepnumb := 0
+	deepnexist := 0*/
 	dislogcount := 0
 	currentTime := time.Now()
 	finalPath := "./log/" + currentTime.Format("2006-01-02_15-04-05") + "_" + url + ".txt"
@@ -148,11 +154,11 @@ func processFile(filePath string, url string, slowmode bool, log bool) (int, int
 		path := scanner.Text()
 		result := checkPathExists(url, slowmode, path, log, finalPath, currentTime.String())
 		fullc++
-		if result == "normal" {
+		if result == "httpnormalisable" || result == "httpsnormalisable" {
+			dislogcount++
 			counterc++
 		}
-		if result == "normalisable" {
-			dislogcount++
+		if result == "httpsnormal" || result == "httpsnormal" {
 			counterc++
 		}
 	}
@@ -183,14 +189,15 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 		temppathhttps := "https://" + fullURL
 		if log {
 			if logs(url, temppathhttps, ctime, finalpath) != true {
-				return "normalisable"
+				return "httpsnormalisable"
 			}
 		}
 		println(temppathhttps)
-		return "normal"
+
+		return "httpsnormal"
 	}
 
-	responser, err := http.Head("http://" + fullURL)
+	responser, err := http.Head("http://" + fullURL + "/")
 	if err != nil {
 		/*fmt.Println("请求发生错误：", err)*/
 		return "error"
@@ -201,11 +208,11 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 		temppathhttp := "http://" + fullURL
 		if log {
 			if logs(url, temppathhttp, ctime, finalpath) != true {
-				return "normalisable"
+				return "httpnormalisable"
 			}
 		}
 		println(temppathhttp)
-		return "notnormal"
+		return "httpnormal"
 	}
 	return "none"
 }
@@ -225,6 +232,49 @@ func logs(path string, exist string, ctime string, finalPath string) bool {
 
 	/*println("[+] 日志写入完成：", finalPath)*/
 	return true
+}
+
+// 递归扫描
+func deepcheck(url string, slowmode bool, path string, log bool, finalpath string, ctime string) string {
+	if slowmode {
+		time.Sleep(1 * time.Second)
+	}
+	fullURL := url + "/" + path
+	response, err := http.Head("https://" + fullURL)
+	if err != nil {
+		/*fmt.Println("请求发生错误：", err)*/
+		return "error"
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusOK {
+		temppathhttps := "https://" + fullURL
+		if log {
+			if logs(url, temppathhttps, ctime, finalpath) != true {
+				return "normalisable"
+			}
+		}
+		println("L_ " + temppathhttps)
+		return "normaldeep"
+	}
+	responser, err := http.Head("http://" + fullURL)
+	if err != nil {
+		/*fmt.Println("请求发生错误：", err)*/
+		return "error"
+	}
+	defer responser.Body.Close()
+
+	if responser.StatusCode == http.StatusOK {
+		temppathhttp := "http://" + fullURL
+		if log {
+			if logs(url, temppathhttp, ctime, finalpath) != true {
+				return "normalisable"
+			}
+		}
+		println("L_ " + temppathhttp)
+		return "notnormaldeep"
+	}
+	return "notexist"
 }
 
 // -h 时
