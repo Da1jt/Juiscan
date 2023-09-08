@@ -87,10 +87,10 @@ func main() {
 	}
 	wg.Wait()
 	fmt.Println("\n\n[*] 扫描完成\n")
-	fmt.Printf("[+] 存在数量：")
-	fmt.Printf("%d / %d", tempall, temp)
+	fmt.Print("[+] 存在数量：")
+	fmt.Print(tempall, " / ", temp, "\n")
 	if logfail >= 1 {
-		fmt.Printf("[-] 全部或部分日志写入失败,失败数量:%s", logfail)
+		fmt.Printf("[-] 全部或部分日志写入失败，失败数量:%d", logfail)
 	} else if logfail == 0 {
 		println("\n[+] 日志写入完成")
 	}
@@ -144,7 +144,7 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 	deepnexist := 0*/
 	dislogcount := 0
 	currentTime := time.Now()
-	finalPath := "./log/" + url + " " + currentTime.Format("2006-01-01 3:4:5") + ".txt"
+	var finalPath string = "./log/" + url + " " + currentTime.Format("2006-01-01_15-04-05") + ".txt"
 	if log {
 		os.Create(finalPath)
 	}
@@ -152,7 +152,7 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 
 	for scanner.Scan() {
 		path := scanner.Text()
-		result := checkPathExists(url, slowmode, path, log, finalPath, currentTime.String())
+		result := checkPathExists(url, slowmode, path, log, finalPath)
 		fullc++
 		if result == "httpnormalisable" || result == "httpsnormalisable" {
 			dislogcount++
@@ -174,7 +174,7 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 }
 
 // 发包
-func checkPathExists(url string, slowmode bool, path string, log bool, finalpath string, ctime string) string {
+func checkPathExists(url string, slowmode bool, path string, log bool, finalpath string) string {
 	if slowmode {
 		time.Sleep(1 * time.Second)
 	}
@@ -188,51 +188,54 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 
 	if response.StatusCode != http.StatusNotFound {
 		temppathhttps := "https://" + fullURL
+		fmt.Print(response.StatusCode, " ", temppathhttps, "\n")
 		if log {
-			if logs(url, temppathhttps, ctime, finalpath) != true {
+			if err := logs(temppathhttps, finalpath); err != nil {
+				fmt.Println("Error writing to log:", err)
 				return "httpsnormalisable"
 			}
 		}
-		fmt.Printf("%s - %s", response.StatusCode, temppathhttps)
-
 		return "httpsnormal"
 	}
 
 	responser, err := http.Head("http://" + fullURL + "/")
 	if err != nil {
+		fmt.Println("Error sending HTTP request:", err)
 		return "error"
 	}
 	defer responser.Body.Close()
 
 	if responser.StatusCode != http.StatusNotFound {
 		temppathhttp := "http://" + fullURL
+		fmt.Print(responser.StatusCode, " ", temppathhttp, "\n")
 		if log {
-			if logs(url, temppathhttp, ctime, finalpath) != true {
+			if err := logs(temppathhttp, finalpath); err != nil {
+				fmt.Println("Error writing to log:", err)
 				return "httpnormalisable"
 			}
 		}
-		fmt.Printf("%s - %s", responser.StatusCode, temppathhttp)
 		return "httpnormal"
 	}
+
 	return "none"
 }
 
-func logs(path string, exist string, ctime string, finalPath string) bool {
+func logs(exist string, finalPath string) error {
 	file, err := os.OpenFile(finalPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return false
+		return err
 	}
 	defer file.Close()
 
-	if _, err := file.WriteString(exist + "\n"); err != nil {
-		return false
+	_, err = file.WriteString(exist + "\n")
+	if err != nil {
+		return err
 	}
 
-	return true
+	return nil
 }
 
 // -h
 func helper() {
 	fmt.Println("<Useage>: \n\n     -url xxx.xxx.xxx\n     -h help\n     -s 慢速扫描\n     -l 存储存在的路径入日志./log     \n     -shutdown 扫描任务完成后关机\n\n<Examp1e>:\n\n     juiscan.exe -url 127.0.0.1 -s\n     juiscan.exe -url 127.0.0.1 -shutdown -l")
-
 }
