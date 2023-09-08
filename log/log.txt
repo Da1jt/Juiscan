@@ -1,1 +1,2 @@
-log
+http://127.0.0.1/login.html
+http://127.0.0.1/loginPC.html
