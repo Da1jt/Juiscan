@@ -41,7 +41,7 @@ func main() {
 	}
 
 	if shutdown {
-		println("[+] 扫描完关机已启用")
+		println("[+] 扫描完成后关机")
 	}
 
 	// 处理其他命令行参数
@@ -76,28 +76,28 @@ func main() {
 	}
 	temp := 0
 	tempall := 0
-	logco := 0
+	logfail := 0
 	var wg sync.WaitGroup
 	for _, file := range fileList {
 		wg.Add(1)
 		go func(file string) {
 			defer wg.Done()
-			temp, tempall, logco = processFile(file, *url, *slowscan, log, deepscan)
+			temp, tempall, logfail = processFile(file, *url, *slowscan, log, deepscan)
 		}(file)
 	}
 	wg.Wait()
 	fmt.Println("\n\n[*] 扫描完成\n")
 	fmt.Printf("[+] 存在数量：")
 	fmt.Printf("%d / %d", tempall, temp)
-	if logco >= 1 {
-		fmt.Printf("[-] 全部或部分日志写入失败,失败数量:%s", logco)
-	} else if logco == 0 {
+	if logfail >= 1 {
+		fmt.Printf("[-] 全部或部分日志写入失败,失败数量:%s", logfail)
+	} else if logfail == 0 {
 		println("\n[+] 日志写入完成")
 	}
 	fmt.Println("")
 
 	if shutdown == true {
-		shutdn := exec.Command("shutdown", "/s", "/t", "0")
+		shutdn := exec.Command("shutdown", "/f")
 		shutdnt := shutdn.Run()
 		if shutdnt != nil {
 			fmt.Println("\n[-] 关机失败\n\n")
@@ -144,7 +144,7 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 	deepnexist := 0*/
 	dislogcount := 0
 	currentTime := time.Now()
-	finalPath := "./log/" + currentTime.Format("2006-01-02_15-04-05") + "_" + url + ".txt"
+	finalPath := "./log/" + url + " " + currentTime.Format("2006-01-01 3:4:5") + ".txt"
 	if log {
 		os.Create(finalPath)
 	}
@@ -158,7 +158,7 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 			dislogcount++
 			counterc++
 		}
-		if result == "httpsnormal" || result == "httpsnormal" {
+		if result == "httpsnormal" || result == "httpnormal" {
 			counterc++
 		}
 	}
@@ -170,6 +170,7 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 		return fullc, counterc, -1
 	}
 	return fullc, counterc, dislogcount
+
 }
 
 // 发包
@@ -185,33 +186,32 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode == http.StatusOK {
+	if response.StatusCode != http.StatusNotFound {
 		temppathhttps := "https://" + fullURL
 		if log {
 			if logs(url, temppathhttps, ctime, finalpath) != true {
 				return "httpsnormalisable"
 			}
 		}
-		println(temppathhttps)
+		fmt.Printf("%s - %s", response.StatusCode, temppathhttps)
 
 		return "httpsnormal"
 	}
 
 	responser, err := http.Head("http://" + fullURL + "/")
 	if err != nil {
-		/*fmt.Println("请求发生错误：", err)*/
 		return "error"
 	}
 	defer responser.Body.Close()
 
-	if responser.StatusCode == http.StatusOK {
+	if responser.StatusCode != http.StatusNotFound {
 		temppathhttp := "http://" + fullURL
 		if log {
 			if logs(url, temppathhttp, ctime, finalpath) != true {
 				return "httpnormalisable"
 			}
 		}
-		println(temppathhttp)
+		fmt.Printf("%s - %s", responser.StatusCode, temppathhttp)
 		return "httpnormal"
 	}
 	return "none"
@@ -220,65 +220,19 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 func logs(path string, exist string, ctime string, finalPath string) bool {
 	file, err := os.OpenFile(finalPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		/*println("无法打开日志文件：", err)*/
 		return false
 	}
 	defer file.Close()
 
 	if _, err := file.WriteString(exist + "\n"); err != nil {
-		/*println("无法写入日志内容：", err)*/
 		return false
 	}
 
-	/*println("[+] 日志写入完成：", finalPath)*/
 	return true
 }
 
-// 递归扫描
-func deepcheck(url string, slowmode bool, path string, log bool, finalpath string, ctime string) string {
-	if slowmode {
-		time.Sleep(1 * time.Second)
-	}
-	fullURL := url + "/" + path
-	response, err := http.Head("https://" + fullURL)
-	if err != nil {
-		/*fmt.Println("请求发生错误：", err)*/
-		return "error"
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode == http.StatusOK {
-		temppathhttps := "https://" + fullURL
-		if log {
-			if logs(url, temppathhttps, ctime, finalpath) != true {
-				return "normalisable"
-			}
-		}
-		println("L_ " + temppathhttps)
-		return "normaldeep"
-	}
-	responser, err := http.Head("http://" + fullURL)
-	if err != nil {
-		/*fmt.Println("请求发生错误：", err)*/
-		return "error"
-	}
-	defer responser.Body.Close()
-
-	if responser.StatusCode == http.StatusOK {
-		temppathhttp := "http://" + fullURL
-		if log {
-			if logs(url, temppathhttp, ctime, finalpath) != true {
-				return "normalisable"
-			}
-		}
-		println("L_ " + temppathhttp)
-		return "notnormaldeep"
-	}
-	return "notexist"
-}
-
-// -h 时
+// -h
 func helper() {
-	//fmt.Println("\n\n                     /$$                                                            \n                    |__/                                                            \n       /$$ /$$   /$$ /$$  /$$$$$$$  /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$   /$$$$$$ \n      |__/| $$  | $$| $$ /$$_____/ /$$_____/ |____  $$| $$__  $$ /$$__  $$ /$$__  $$\n       /$$| $$  | $$| $$|  $$$$$$ | $$        /$$$$$$$| $$  \\ $$| $$$$$$$$| $$  \\__/\n      | $$| $$  | $$| $$ \\____  $$| $$       /$$__  $$| $$  | $$| $$_____/| $$      \n      | $$|  $$$$$$/| $$ /$$$$$$$/|  $$$$$$$|  $$$$$$$| $$  | $$|  $$$$$$$| $$      \n      | $$ \\______/ |__/|_______/  \\_______/ \\_______/|__/  |__/ \\_______/|__/      \n /$$  | $$                                                                          \n|  $$$$$$/                                                                          \n \\______/                                                                           \n\n")
 	fmt.Println("<Useage>: \n\n     -url xxx.xxx.xxx\n     -h help\n     -s 慢速扫描\n     -l 存储存在的路径入日志./log     \n     -shutdown 扫描任务完成后关机\n\n<Examp1e>:\n\n     juiscan.exe -url 127.0.0.1 -s\n     juiscan.exe -url 127.0.0.1 -shutdown -l")
+
 }
