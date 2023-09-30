@@ -1,4 +1,3 @@
 # Juiscan
 
-Juiscaner
-A free open source software
+An open source golang simple scanner template
