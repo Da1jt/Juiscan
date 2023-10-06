@@ -160,6 +160,34 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 		}
 		if result == "httpsnormal" || result == "httpnormal" {
 			counterc++
+			/*if deepscan {
+				if result == "normal" {
+					counterc++
+					temppath := url + "/" + path
+					if deepscan {
+						for scanner.Scan() {
+							path := scanner.Text()
+							println(temppath)
+							deepresult := deepcheck(url+temppath, slowmode, path, log, finalPath, currentTime.String())
+							fullc++
+							if deepresult == "normal" {
+								counterc++
+								deepnumb++
+							}
+							if deepresult == "normalisable" {
+								dislogcount++
+								counterc++
+								deepnumb++
+							}
+							if deepresult == "none" {
+								deepnexist++
+								counterc++
+							}
+						}
+						println(deepnumb)
+					}
+				}
+			}*/
 		}
 	}
 
@@ -170,7 +198,6 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 		return fullc, counterc, -1
 	}
 	return fullc, counterc, dislogcount
-
 }
 
 // 发包
@@ -188,7 +215,7 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 
 	if response.StatusCode != http.StatusNotFound {
 		temppathhttps := "https://" + fullURL
-		fmt.Print(response.StatusCode, " ", temppathhttps, "\n")
+		fmt.Print("[+] ", time.Now().Format("15:04:05"), "  ", response.StatusCode, "  ", temppathhttps, "\n")
 		if log {
 			if err := logs(temppathhttps, finalpath); err != nil {
 				fmt.Println("Error writing to log:", err)
@@ -207,7 +234,7 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 
 	if responser.StatusCode != http.StatusNotFound {
 		temppathhttp := "http://" + fullURL
-		fmt.Print(responser.StatusCode, " ", temppathhttp, "\n")
+		fmt.Print("[+] ", time.Now().Format("15:04:05"), "  ", response.StatusCode, "  ", temppathhttp, "\n")
 		if log {
 			if err := logs(temppathhttp, finalpath); err != nil {
 				fmt.Println("Error writing to log:", err)
@@ -216,7 +243,6 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 		}
 		return "httpnormal"
 	}
-
 	return "none"
 }
 
@@ -226,12 +252,10 @@ func logs(exist string, finalPath string) error {
 		return err
 	}
 	defer file.Close()
-
 	_, err = file.WriteString(exist + "\n")
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
