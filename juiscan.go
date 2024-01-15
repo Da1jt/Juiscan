@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -28,14 +29,14 @@ func main() {
 	help := flag.Bool("h", false, "帮助")
 	flag.Parse()
 
-	fmt.Println("\n\n                     /$$                                                            \n                    |__/                                                            \n       /$$ /$$   /$$ /$$  /$$$$$$$  /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$   /$$$$$$ \n      |__/| $$  | $$| $$ /$$_____/ /$$_____/ |____  $$| $$__  $$ /$$__  $$ /$$__  $$\n       /$$| $$  | $$| $$|  $$$$$$ | $$        /$$$$$$$| $$  \\ $$| $$$$$$$$| $$  \\__/\n      | $$| $$  | $$| $$ \\____  $$| $$       /$$__  $$| $$  | $$| $$_____/| $$      \n      | $$|  $$$$$$/| $$ /$$$$$$$/|  $$$$$$$|  $$$$$$$| $$  | $$|  $$$$$$$| $$      \n      | $$ \\______/ |__/|_______/  \\_______/ \\_______/|__/  |__/ \\_______/|__/      \n /$$  | $$                                                                          \n|  $$$$$$/                                                                          \n \\______/                                                                           \n\n")
+	fmt.Println("\n\n                     /$$                                                            \n                    |__/                                                            \n       /$$ /$$   /$$ /$$  /$$$$$$$  /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$   /$$$$$$ \n      |__/| $$  | $$| $$ /$$_____/ /$$_____/ |____  $$| $$__  $$ /$$__  $$ /$$__  $$\n       /$$| $$  | $$| $$|  $$$$$$ | $$        /$$$$$$$| $$  \\ $$| $$$$$$$$| $$  \\__/\n      | $$| $$  | $$| $$ \\____  $$| $$       /$$__  $$| $$  | $$| $$_____/| $$      \n      | $$|  $$$$$$/| $$ /$$$$$$$/|  $$$$$$$|  $$$$$$$| $$  | $$|  $$$$$$$| $$      \n      | $$ \\______/ |__/|_______/  \\_______/ \\_______/|__/  |__/ \\_______/|__/      \n /$$  | $$                                                                          \n|  $$$$$$/                                                                          \n \\______/                                                                           ")
 
 	if *help {
 		helper()
 		return
 	}
 	if *url == "" {
-		fmt.Println("无效的 URL")
+		fmt.Println("[-] 无效的 URL")
 		return
 	}
 
@@ -43,41 +44,41 @@ func main() {
 		fmt.Println("[+] 慢速扫描已启用")
 	}
 
-	port_scan := "no"
-	Gpstart, Gpend, G_port_single := 0, 0, 0
+	portScan := "no"
+	GpStart, GpEnd, GPortSingle := 0, 0, 0
 	if *ports != "" {
 		if strings.Contains(*ports, "-") {
 			parts := strings.Split(*ports, "-")
 			pstart := parts[0]
 			pend := parts[1]
-			pstart_int, err := strconv.Atoi(pstart)
+			pstartInt, err := strconv.Atoi(pstart)
 			if err != nil {
 				fmt.Println("[-] 端口范围输入错误", err)
 				return
 			}
-			pend_int, err := strconv.Atoi(pend)
+			pendInt, err := strconv.Atoi(pend)
 			if err != nil {
 				fmt.Println("[-] 端口范围输入错误", err)
 				return
 			}
-			if is_valid_port(pstart_int) && is_valid_port(pend_int) {
-				fmt.Printf("[+] 端口扫描已启用 %d-%d", pstart, pend)
-				port_scan = "range"
-				Gpstart, Gpend = pstart_int, pend_int
+			if isValidPort(pstartInt) && isValidPort(pendInt) {
+				fmt.Printf("[+] 端口扫描已启用 %s-%s", pstart, pend)
+				portScan = "range"
+				GpStart, GpEnd = pstartInt, pendInt
 
 			} else {
 				fmt.Println("[-] 端口范围输入错误", err)
 				return
 			}
 		} else {
-			port_single, err := strconv.Atoi(*ports)
+			portSingle, err := strconv.Atoi(*ports)
 			if err != nil {
 				fmt.Println("端口范围输入错误", err)
 				return
 			}
-			if is_valid_port(port_single) {
-				fmt.Printf("[+] 端口扫描已启用 %d", port_single)
-				port_scan = "single"
+			if isValidPort(portSingle) {
+				fmt.Printf("[+] 端口扫描已启用 %d", portSingle)
+				portScan = "single"
 			}
 		}
 	}
@@ -108,7 +109,12 @@ func main() {
 		os.Exit(1)
 		return
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+
+		}
+	}(conn)
 
 	dirPath := "./dictionary/"
 
@@ -123,21 +129,23 @@ func main() {
 		wg.Add(1)
 		go func(file string) {
 			defer wg.Done()
-			temp, tempall, logfail, logpath = processFile(file, *url, *slowscan, log, deepscan)
+			temp, tempall, logfail, logpath = processFile(file, *url, *slowscan, log /*, deepscan*/)
 		}(file)
 	}
-	ip_a, alive_port, TotalAlive := []string{}, [][]int{}, 0
-	if port_scan != "no" {
-		if port_scan == "range" {
-			portlist := []int{Gpstart, Gpend}
-			ip_a, alive_port, TotalAlive = port_scanner(portlist, port_scan, *url)
+	var ipA []string
+	var alivePort [][]int
+	TotalAlive := 0
+	if portScan != "no" {
+		if portScan == "range" {
+			portlist := []int{GpStart, GpEnd}
+			ipA, alivePort, TotalAlive = portScanner(portlist, portScan, *url)
 		} else {
-			portlist := []int{G_port_single}
-			ip_a, alive_port, TotalAlive = port_scanner(portlist, port_scan, *url)
+			portlist := []int{GPortSingle}
+			ipA, alivePort, TotalAlive = portScanner(portlist, portScan, *url)
 		}
-		for i := 0; i < len(alive_port); i++ {
-			for j := 0; j < len(alive_port[i]); j++ {
-				Err := logs(strconv.Itoa(alive_port[i][j]), logpath)
+		for i := 0; i < len(alivePort); i++ {
+			for j := 0; j < len(alivePort[i]); j++ {
+				Err := logs(strconv.Itoa(alivePort[i][j]), logpath)
 				if Err != nil {
 					logfail++
 				}
@@ -146,12 +154,12 @@ func main() {
 	}
 
 	wg.Wait()
-	fmt.Println("\n\n[*] 扫描完成\n")
+	fmt.Println("\n\n[*] 扫描完成")
 	fmt.Print("[+] 存在数量路径：")
-	fmt.Print(tempall, " / ", temp, "\n")
+	fmt.Println(tempall, " / ", temp)
 	fmt.Print("[+] 存活端口数量：")
-	all_port := len(ip_a) * (Gpend - Gpstart)
-	fmt.Print(TotalAlive, " / ", all_port, "\n")
+	allPort := (GpEnd - GpStart) * len(ipA)
+	fmt.Print(TotalAlive, " / ", allPort, "\n")
 	if logfail >= 1 {
 		fmt.Printf("[-] 全部或部分日志写入失败，失败数量:%d", logfail)
 	} else if logfail == 0 {
@@ -163,7 +171,7 @@ func main() {
 		shutdn := exec.Command("shutdown", "/f")
 		shutdnt := shutdn.Run()
 		if shutdnt != nil {
-			fmt.Println("\n[-] 关机失败\n\n")
+			fmt.Println("\n[-] 关机失败")
 		} else {
 			fmt.Println("[+] 关机成功")
 		}
@@ -172,7 +180,7 @@ func main() {
 
 // 获取各个字典名称
 func getFileList(dirPath string) ([]string, error) {
-	fileList := []string{}
+	var fileList []string
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -190,54 +198,59 @@ func getFileList(dirPath string) ([]string, error) {
 	return fileList, err
 }
 
-func is_valid_port(port int) bool {
+func isValidPort(port int) bool {
 	if port >= 1 && port <= 65535 {
 		return true
 	}
 	return false
 }
-func port_scanner(portlist []int, method string, ip string) ([]string, [][]int, int) {
-	var alive_port [][]int
+func portScanner(portlist []int, method string, ip string) ([]string, [][]int, int) {
+	var alivePort [][]int
 	TotalAlive := 0
-	ip_a, err := url2ip(ip)
+	ipA, err := url2ip(ip)
 	if err != nil {
 		fmt.Println("[-] url解析错误：", err)
 		return nil, nil, 0
 	}
-	for j := 0; j < len(ip_a); j++ {
+	for j := 0; j < len(ipA); j++ {
 		if method == "single" {
-			alive_port[j][0] = sub_portscan(portlist[0], ip_a[j])
-			if alive_port[j][0] != 0 {
+			alivePort[j][0] = subPortscan(portlist[0], ipA[j])
+			if alivePort[j][0] != 0 {
 				TotalAlive++
-				fmt.Printf("[+] %s:%d 端口开放\n", ip_a[j], alive_port[j][0])
+				fmt.Printf("[+] %s:%d 端口开放\n", ipA[j], alivePort[j][0])
 			}
 		} else if method == "range" {
 			counter := 0
 			for i := portlist[0]; i <= portlist[1]; i++ {
-				res := sub_portscan(i, ip_a[j])
+				res := subPortscan(i, ipA[j])
 				if res != 0 {
-					alive_port[j][counter] = res
-					fmt.Printf("[+] %s:%d 端口开放\n", ip_a[j], alive_port[j][counter])
+					alivePort[j][counter] = res
+					fmt.Printf("[+] %s:%d 端口开放\n", ipA[j], alivePort[j][counter])
 					counter++
 					TotalAlive++
 				}
 			}
 		}
 	}
-	return ip_a, alive_port, TotalAlive
+	return ipA, alivePort, TotalAlive
 }
 
-func sub_portscan(port int, ip string) int {
+func subPortscan(port int, ip string) int {
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, strconv.Itoa(port)), time.Second)
 	if err == nil {
-		defer conn.Close()
+		defer func(conn net.Conn) {
+			err := conn.Close()
+			if err != nil {
+				fmt.Println("[-] 关闭连接失败：", err)
+			}
+		}(conn)
 		return port
 	}
 	return 0
 }
 
 // 处理字典
-func processFile(filePath string, url string, slowmode bool, log bool, deepscan bool) (int, int, int, string) {
+func processFile(filePath string, url string, slowmode bool, log bool /*, deepscan bool*/) (int, int, int, string) {
 	fmt.Println("[+] 处理字典：", filePath)
 
 	file, err := os.Open(filePath)
@@ -245,7 +258,12 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 		fmt.Println("[-] 打开文件失败：", err)
 		return 0, 0, 0, "0"
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("[-] 关闭文件失败：", err)
+		}
+	}(file)
 
 	var fullc = 0
 	var counterc = 0
@@ -255,7 +273,10 @@ func processFile(filePath string, url string, slowmode bool, log bool, deepscan 
 	currentTime := time.Now()
 	var finalPath = "./log/" + url + " " + currentTime.Format("2006-01-01_15-04-05") + ".txt"
 	if log {
-		os.Create(finalPath)
+		_, err := os.Create(finalPath)
+		if err != nil {
+			return 0, 0, 0, ""
+		}
 	}
 	scanner := bufio.NewScanner(file)
 
@@ -331,7 +352,12 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 		/*fmt.Println("请求发生错误：", err)*/
 		return "error"
 	}
-	defer response.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println("关闭响应体时发生错误：", err)
+		}
+	}(response.Body)
 
 	if response.StatusCode != http.StatusNotFound {
 		temppathhttps := "https://" + fullURL
@@ -350,13 +376,18 @@ func checkPathExists(url string, slowmode bool, path string, log bool, finalpath
 		fmt.Println("Error sending HTTP request:", err)
 		return "error"
 	}
-	defer responser.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println("关闭响应体时发生错误：", err)
+		}
+	}(responser.Body)
 
 	if responser.StatusCode != http.StatusNotFound {
-		temppathhttp := "http://" + fullURL
-		fmt.Print("[+] ", time.Now().Format("15:04:05"), "  ", response.StatusCode, "  ", temppathhttp, "\n")
+		empathetic := "http://" + fullURL
+		fmt.Print("[+] ", time.Now().Format("15:04:05"), "  ", response.StatusCode, "  ", empathetic, "\n")
 		if log {
-			if err := logs(temppathhttp, finalpath); err != nil {
+			if err := logs(empathetic, finalpath); err != nil {
 				fmt.Println("Error writing to log:", err)
 				return "httpnormalisable"
 			}
@@ -371,7 +402,12 @@ func logs(exist string, finalPath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("关闭文件时发生错误：", err)
+		}
+	}(file)
 	_, err = file.WriteString(exist + "\n")
 	if err != nil {
 		return err
@@ -381,5 +417,5 @@ func logs(exist string, finalPath string) error {
 
 // -h
 func helper() {
-	fmt.Println("<Useage>: \n\n     -url xxx.xxx.xxx\n     -h help\n     -s 慢速扫描\n     -p 目标端口扫描，可以以1~100的格式指定扫描范围或单个扫描     \n     -l 存储存在的路径入日志./log     \n     -shutdown 扫描任务完成后关机\n\n<Examp1e>:\n\n     juiscan.exe -url 127.0.0.1 -s\n     juiscan.exe -url 127.0.0.1 -shutdown -l")
+	fmt.Println("<Useage>: \n\n     -url xxx.xxx.xxx\n     -h help\n     -s 慢速扫描\n     -p 目标端口扫描，可以以1~100的格式指定扫描范围或单个扫描     \n     -l 存储存在的路径入日志./log     \n     -shutdown 扫描任务完成后关机\n\n<Examp1e>:\n\n     juiscan.exe -url 127.0.0.1 -s\n     juiscan.exe -url 127.0.0.1 -p 1-100\n     juiscan.exe -url 127.0.0.1 -shutdown -l")
 }
